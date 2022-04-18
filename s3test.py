@@ -40,6 +40,9 @@ local_file = 'README.md'
 # 下载文件
 s3.Object(bucket_name, obj_name).download_file(local_file)
 
+# download to bytes
+s3.Object(bucket_name, obj_name).get()['Body'].read() #.decode('utf-8')
+
 # 删除bucket下所有object
 #bucket.objects.filter().delete()
 
