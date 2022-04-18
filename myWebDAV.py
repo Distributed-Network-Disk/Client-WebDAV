@@ -115,7 +115,7 @@ class FileMember(Member):
     def sendData(self, wfile, bpoint=0, epoint=0):
         """Send the file to the client. Literally."""
         st = os.stat(self.fsname)
-        f = file(self.fsname, 'rb') # TODO: replace with bytes
+        f = open(self.fsname, 'rb') # TODO: replace with bytes
         writ = 0
         # for send Range xxx-xxx
         if bpoint > 0 and bpoint < st.st_size:
@@ -226,7 +226,7 @@ class DirCollection(FileMember, Collection):
     def recvMember(self, rfile, name, size, req):
         """Receive (save) a member file"""
         fname = os.path.join(self.fsname, urllib.parse.unquote(name))
-        f = file(fname, 'wb') # TODO: replace with bytes
+        f = open(fname, 'wb') # TODO: replace with bytes
         # if size=-1 it's Transfer-Encoding: Chunked mode, like OSX finder using this mode put data
         # so the file size need get here.
         if size == -2:
@@ -369,6 +369,7 @@ class XMLDict_Parser:
             tag, attrs, data = self.getnexttag()
             if data != '':  # data is actually that between the last tag and this one
                 sys.stderr.write("Warning: inline data between tags?!\n")
+                sys.stderr.write(data)
             if not tag:
                 break
             if tag[-1] == '/':  # an 'empty' tag (e.g. <empty/>)
@@ -827,7 +828,7 @@ if __name__ == '__main__':
     # or you can change your auth mode and file save format
     userpwd = []
     try:
-        f = file('wdusers.conf', 'r')
+        f = open('wdusers.conf', 'r')
         for uinfo in f.readlines():
             uinfo = uinfo.replace('\n', '')
             if len(uinfo) > 2:
