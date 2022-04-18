@@ -97,7 +97,7 @@ class FileMember(Member):
         p['creationdate'] = unixdate2iso8601(st.st_ctime)
         p['getlastmodified'] = unixdate2httpdate(st.st_mtime)
         p['displayname'] = self.name
-        p['getetag'] = md5.new(self.fsname).hexdigest()
+        p['getetag'] = md5(bytes(self.fsname, 'utf-8')).hexdigest()
         if self.type == Member.M_MEMBER:
             p['getcontentlength'] = st.st_size
             p['getcontenttype'], z = mimetypes.guess_type(self.name)
@@ -115,7 +115,7 @@ class FileMember(Member):
     def sendData(self, wfile, bpoint=0, epoint=0):
         """Send the file to the client. Literally."""
         st = os.stat(self.fsname)
-        f = file(self.fsname, 'rb')
+        f = file(self.fsname, 'rb') # TODO: replace with bytes
         writ = 0
         # for send Range xxx-xxx
         if bpoint > 0 and bpoint < st.st_size:
@@ -226,7 +226,7 @@ class DirCollection(FileMember, Collection):
     def recvMember(self, rfile, name, size, req):
         """Receive (save) a member file"""
         fname = os.path.join(self.fsname, urllib.parse.unquote(name))
-        f = file(fname, 'wb')
+        f = file(fname, 'wb') # TODO: replace with bytes
         # if size=-1 it's Transfer-Encoding: Chunked mode, like OSX finder using this mode put data
         # so the file size need get here.
         if size == -2:
@@ -340,7 +340,6 @@ class XMLDict_Parser:
         self.namespaces = {}
 
     def getnexttag(self):
-        print(self.xml)
         ptag = self.xml.find(b'<', self.p)
         if ptag < 0:
             return None, None, self.xml[self.p:].strip()
@@ -570,8 +569,10 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
             req = self.rfile.read(int(self.headers['Content-length']))
         else:
             req = self.rfile.read()
+        print('1')
         d = builddict(req)              # change all http.request to dict stru
         wished_all = False
+        print('1')
         if len(d) == 0:
             wished_props = DAVRequestHandler.basic_props
         else:
@@ -585,6 +586,7 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
                     ### for IOS Coda Webdav support ###
                     wished_props.append(prop.split(' ')[0])
         path, elem = self.path_elem()
+        print('2')
         if not elem:
             if len(path) >= 1:  # it's a non-existing file
                 self.send_response(404, 'Not Found')
@@ -603,12 +605,15 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.send_header("charset", '"utf-8"')
         # !!! if need debug output xml info,please set last var from False to True.
         w = BufWriter(self.wfile, False)
-        w.write('<?xml version="1.0" encoding="utf-8" ?>\n')
-        w.write('<D:multistatus xmlns:D="DAV:" xmlns:Z="urn:schemas-microsoft-com:">\n')
+        w.write(b'<?xml version="1.0" encoding="utf-8" ?>\n')
+        w.write(
+            b'<D:multistatus xmlns:D="DAV:" xmlns:Z="urn:schemas-microsoft-com:">\n')
 
         def write_props_member(w, m):
-            w.write('<D:response>\n<D:href>%s</D:href>\n<D:propstat>\n<D:prop>\n' %
-                    urllib.quote(m.virname))  # add urllib.quote for chinese
+            # add urllib.quote for chinese
+            str = '<D:response>\n<D:href>%s</D:href>\n<D:propstat>\n<D:prop>\n' % urllib.parse.quote(
+                m.virname)
+            w.write(bytes(str, 'utf-8'))  # add urllib.quote for chinese
             props = m.getProperties()       # get the file or dir props
             # For OSX Finder : getlastmodified,getcontentlength,resourceType
             if ('quota-available-bytes' in wished_props) or ('quota-used-bytes' in wished_props) or ('quota' in wished_props) or ('quotaused' in wished_props):
@@ -620,7 +625,7 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
                 props['quota-available-bytes'] = sDisk.f_bavail * sDisk.f_frsize
                 props['quota'] = sDisk.f_bavail * sDisk.f_frsize
             for wp in wished_props:
-                if props.has_key(wp) == False:
+                if wp not in props.keys():
                     w.write('  <D:%s/>\n' % wp)
                 else:
                     w.write('  <D:%s>%s</D:%s>\n' % (wp, str(props[wp]), wp))
@@ -631,7 +636,7 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         if depth == '1':
             for m in elem.getMembers():
                 write_props_member(w, m)
-        w.write('</D:multistatus>')
+        w.write(b'</D:multistatus>')
         self.send_header('Content-Length', str(w.getSize()))
         self.end_headers()
         w.flush()
@@ -645,6 +650,9 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
             return
         try:
             props = elem.getProperties()
+            '''
+            {'creationdate': '2022-04-18T21:01:57-08:00', 'getlastmodified': 'Mon, 18 Apr 2022 13:01:57 GMT', 'displayname': '/', 'getetag': '64cd73d669dd8f337d8b1b251fc6bd39', 'resourcetype': '<D:collection/>', 'isroot': 1, 'iscollection': 1, 'getcontenttype': 'httpd/unix-directory'}
+            '''
         except:
             self.send_response(500, "Error retrieving properties")
             self.end_headers()
@@ -776,7 +784,7 @@ class BufWriter:
         if self.debug:
             sys.stderr.write(s)
         # add unicode(s,'utf-8') for chinese code.
-        self.buf.write(unicode(s, 'utf-8'))
+        self.buf.write(s.decode("utf-8", "ignore")) # TODO: 'str' object has no attribute 'decode'?
 
     def flush(self):
         self.w.write(self.buf.getvalue().encode('utf-8'))
