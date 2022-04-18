@@ -168,8 +168,8 @@ class DirCollection(FileMember, Collection):
 
 		# Return WebDav Root Dir info
     def rootdir(self):
-    	return self.fsname
-
+        return self.fsname
+    
     def findMember(self, name):
         """Search for a particular member."""
         l = os.listdir(self.fsname) # obtain a copy of dirlist
@@ -754,7 +754,7 @@ class DAVServer(ThreadingMixIn, HTTPServer):
     def finish_request(self,request,client_address):
         try:
             HTTPServer.finish_request(self, request, client_address)
-        except(socket.error, e):
+        except socket.error as e:
             pass
 
 if __name__ == '__main__':
