@@ -367,9 +367,9 @@ class XMLDict_Parser:
         d = Tag('<root>', '')
         while True:
             tag, attrs, data = self.getnexttag()
-            if data != '':  # data is actually that between the last tag and this one
+            if data != b'':  # data is actually that between the last tag and this one
                 sys.stderr.write("Warning: inline data between tags?!\n")
-                sys.stderr.write(data)
+                # print(data)
             if not tag:
                 break
             if tag[-1] == '/':  # an 'empty' tag (e.g. <empty/>)
@@ -570,10 +570,10 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
             req = self.rfile.read(int(self.headers['Content-length']))
         else:
             req = self.rfile.read()
-        print('1')
+        # print('1')
         d = builddict(req)              # change all http.request to dict stru
         wished_all = False
-        print('1')
+        # print('1')
         if len(d) == 0:
             wished_props = DAVRequestHandler.basic_props
         else:
@@ -587,7 +587,7 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
                     ### for IOS Coda Webdav support ###
                     wished_props.append(prop.split(' ')[0])
         path, elem = self.path_elem()
-        print('2')
+        # print('2')
         if not elem:
             if len(path) >= 1:  # it's a non-existing file
                 self.send_response(404, 'Not Found')
@@ -785,7 +785,7 @@ class BufWriter:
         if self.debug:
             sys.stderr.write(s)
         # add unicode(s,'utf-8') for chinese code.
-        print(type(s))
+        # print(type(s))
         self.buf.write(s.decode("utf-8")) # TODO: 'str' object has no attribute 'decode'?
 
     def flush(self):
