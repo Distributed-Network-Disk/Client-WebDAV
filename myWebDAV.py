@@ -626,11 +626,11 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
                 props['quota'] = sDisk.f_bavail * sDisk.f_frsize
             for wp in wished_props:
                 if wp not in props.keys():
-                    w.write('  <D:%s/>\n' % wp)
+                    w.write(bytes('  <D:%s/>\n' % wp, encoding='utf-8'))
                 else:
-                    w.write('  <D:%s>%s</D:%s>\n' % (wp, str(props[wp]), wp))
+                    w.write(bytes('  <D:%s>%s</D:%s>\n' % (wp, props[wp], wp), encoding='utf-8')) # TODO
             w.write(
-                '</D:prop>\n<D:status>HTTP/1.1 200 OK</D:status>\n</D:propstat>\n</D:response>\n')
+                b'</D:prop>\n<D:status>HTTP/1.1 200 OK</D:status>\n</D:propstat>\n</D:response>\n')
 
         write_props_member(w, elem)
         if depth == '1':
@@ -784,7 +784,8 @@ class BufWriter:
         if self.debug:
             sys.stderr.write(s)
         # add unicode(s,'utf-8') for chinese code.
-        self.buf.write(s.decode("utf-8", "ignore")) # TODO: 'str' object has no attribute 'decode'?
+        print(type(s))
+        self.buf.write(s.decode("utf-8")) # TODO: 'str' object has no attribute 'decode'?
 
     def flush(self):
         self.w.write(self.buf.getvalue().encode('utf-8'))
