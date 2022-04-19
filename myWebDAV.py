@@ -98,7 +98,7 @@ class FileMember(Member):
         p['creationdate'] = unixdate2iso8601(st.st_ctime)
         p['getlastmodified'] = unixdate2httpdate(st.st_mtime)
         p['displayname'] = self.name
-        p['getetag'] = md5(bytes(self.fsname, 'utf-8')).hexdigest()
+        p['getetag'] = md5(self.fsname, 'utf-8').hexdigest()
         if self.type == Member.M_MEMBER:
             p['getcontentlength'] = st.st_size
             p['getcontenttype'], z = mimetypes.guess_type(self.name)
@@ -342,23 +342,23 @@ class XMLDict_Parser:
         self.namespaces = {}
 
     def getnexttag(self):
-        ptag = self.xml.find(b'<', self.p)
+        ptag = self.xml.find('<', self.p)
         if ptag < 0:
             return None, None, self.xml[self.p:].strip()
         data = self.xml[self.p:ptag].strip()
         self.p = ptag
         self.tagbegin = ptag
-        p2 = self.xml.find(b'>', self.p+1)
+        p2 = self.xml.find('>', self.p+1)
         if p2 < 0:
             raise "Malformed XML - unclosed tag?"
         tag = self.xml[ptag+1:p2]
         self.p = p2+1
         self.tagend = p2+1
-        ps = tag.find(b' ')
+        ps = tag.find(' ')
         ### Change By LCJ @ 2017/9/7 from  [ if ps > 0: ]  ###
         ### for IOS Coda Webdav support ###
-        if ps > 0 and tag[-1] != b'/':
-            tag, attrs = tag.split(b' ', 1)
+        if ps > 0 and tag[-1] != '/':
+            tag, attrs = tag.split(' ', 1)
         else:
             attrs = ''
         return tag, attrs, data
@@ -369,7 +369,7 @@ class XMLDict_Parser:
         d = Tag('<root>', '')
         while True:
             tag, attrs, data = self.getnexttag()
-            if data != b'':  # data is actually that between the last tag and this one
+            if data != '':  # data is actually that between the last tag and this one
                 sys.stderr.write("Warning: inline data between tags?!\n")
                 # print(data)
             if not tag:
@@ -608,15 +608,15 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.send_header("charset", '"utf-8"')
         # !!! if need debug output xml info,please set last var from False to True.
         w = BufWriter(self.wfile, False)
-        w.write(b'<?xml version="1.0" encoding="utf-8" ?>\n')
+        w.write('<?xml version="1.0" encoding="utf-8" ?>\n')
         w.write(
-            b'<D:multistatus xmlns:D="DAV:" xmlns:Z="urn:schemas-microsoft-com:">\n')
+            '<D:multistatus xmlns:D="DAV:" xmlns:Z="urn:schemas-microsoft-com:">\n')
 
         def write_props_member(w, m):
             # add urllib.quote for chinese
             str = '<D:response>\n<D:href>%s</D:href>\n<D:propstat>\n<D:prop>\n' % urllib.parse.quote(
                 m.virname)
-            w.write(bytes(str, 'utf-8'))  # add urllib.quote for chinese
+            w.write(str)  # add urllib.quote for chinese
             props = m.getProperties()       # get the file or dir props
             # For OSX Finder : getlastmodified,getcontentlength,resourceType
             if ('quota-available-bytes' in wished_props) or ('quota-used-bytes' in wished_props) or ('quota' in wished_props) or ('quotaused' in wished_props):
@@ -629,17 +629,17 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
                 props['quota'] = sDisk.f_bavail * sDisk.f_frsize
             for wp in wished_props:
                 if wp not in props.keys():
-                    w.write(bytes('  <D:%s/>\n' % wp, encoding='utf-8'))
+                    w.write('  <D:%s/>\n' % wp)
                 else:
-                    w.write(bytes('  <D:%s>%s</D:%s>\n' % (wp, props[wp], wp), encoding='utf-8')) # TODO
+                    w.write('  <D:%s>%s</D:%s>\n' % (wp, props[wp], wp)) # TODO
             w.write(
-                b'</D:prop>\n<D:status>HTTP/1.1 200 OK</D:status>\n</D:propstat>\n</D:response>\n')
+                '</D:prop>\n<D:status>HTTP/1.1 200 OK</D:status>\n</D:propstat>\n</D:response>\n')
 
         write_props_member(w, elem)
         if depth == '1':
             for m in elem.getMembers():
                 write_props_member(w, m)
-        w.write(b'</D:multistatus>')
+        w.write('</D:multistatus>')
         self.send_header('Content-Length', str(w.getSize()))
         self.end_headers()
         w.flush()
