@@ -676,7 +676,10 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         bpoint = 0
         epoint = 0
         # print(props)
-        fullen = props['getcontentlength']
+        if 'getcontentlength' in props.keys():
+            fullen = props['getcontentlength']
+        else:
+            fullen = 0
         if 'Range' in self.headers:
             stmp = self.headers['Range'][6:]
             stmp = stmp.split('-')
