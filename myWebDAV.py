@@ -93,12 +93,12 @@ class FileMember(Member):
         """Return dictionary with WebDAV properties. Values shold be
         formatted according to the WebDAV specs."""
         st = os.stat(self.fsname)
-        print(st)
         p = {}
         p['creationdate'] = unixdate2iso8601(st.st_ctime)
         p['getlastmodified'] = unixdate2httpdate(st.st_mtime)
         p['displayname'] = self.name
-        p['getetag'] = md5(self.fsname, 'utf-8').hexdigest()
+        # print(self.name)
+        p['getetag'] = md5(bytes(self.fsname, 'utf-8')).hexdigest()
         if self.type == Member.M_MEMBER:
             p['getcontentlength'] = st.st_size
             p['getcontenttype'], z = mimetypes.guess_type(self.name)
@@ -112,7 +112,6 @@ class FileMember(Member):
         if self.name == '/':
             p['isroot'] = 1
         return p
-        
 
     def sendData(self, wfile, bpoint=0, epoint=0):
         """Send the file to the client. Literally."""
@@ -342,25 +341,25 @@ class XMLDict_Parser:
         self.namespaces = {}
 
     def getnexttag(self):
-        ptag = self.xml.find('<', self.p)
+        ptag = self.xml.find(b'<', self.p)
         if ptag < 0:
             return None, None, self.xml[self.p:].strip()
         data = self.xml[self.p:ptag].strip()
         self.p = ptag
         self.tagbegin = ptag
-        p2 = self.xml.find('>', self.p+1)
+        p2 = self.xml.find(b'>', self.p+1)
         if p2 < 0:
             raise "Malformed XML - unclosed tag?"
         tag = self.xml[ptag+1:p2]
         self.p = p2+1
         self.tagend = p2+1
-        ps = tag.find(' ')
+        ps = tag.find(b' ')
         ### Change By LCJ @ 2017/9/7 from  [ if ps > 0: ]  ###
         ### for IOS Coda Webdav support ###
-        if ps > 0 and tag[-1] != '/':
-            tag, attrs = tag.split(' ', 1)
+        if ps > 0 and tag[-1] != b'/':
+            tag, attrs = tag.split(b' ', 1)
         else:
-            attrs = ''
+            attrs = b''
         return tag, attrs, data
 
     def builddict(self):
@@ -369,17 +368,21 @@ class XMLDict_Parser:
         d = Tag('<root>', '')
         while True:
             tag, attrs, data = self.getnexttag()
-            if data != '':  # data is actually that between the last tag and this one
+            print(tag,attrs,data)
+            print(type(tag))
+            if data != b'':  # data is actually that between the last tag and this one
                 sys.stderr.write("Warning: inline data between tags?!\n")
                 # print(data)
             if not tag:
                 break
-            if tag[-1] == '/':  # an 'empty' tag (e.g. <empty/>)
+            if tag[-1] == b'/':  # an 'empty' tag (e.g. <empty/>)
+                print(tag[-1]+b'==/')
                 d.addChild(Tag(tag[:-1], attrs, parser=self))
                 continue
-            elif tag[0] == '?':  # special tag
+            elif tag[0] == b'?':  # special tag
+                print(tag[0]+'==?')
                 t = d.addChild(Tag(tag, attrs, parser=self))
-                if tag == '?xml' and 'encoding' in t.attrs:
+                if tag == b'?xml' and b'encoding' in t.attrs:
                     self.encoding = t.attrs['encoding']
             else:
                 try:
@@ -471,7 +474,7 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         if self.WebAuth():
             return
-        path = urllib.unquote(self.path)
+        path = urllib.parse.unquote(self.path)
         if path == '':
             self.send_error(404, 'Object not found')
             self.send_header('Content-length', '0')
@@ -494,7 +497,7 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
     def do_MKCOL(self):
         if self.WebAuth():
             return
-        path = urllib.unquote(self.path)
+        path = urllib.parse.unquote(self.path)
         if path != '':
             path = self.server.root.rootdir() + path
             if os.path.isdir(path) == False:
@@ -510,9 +513,9 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
     def do_MOVE(self):
         if self.WebAuth():
             return
-        oldfile = self.server.root.rootdir() + urllib.unquote(self.path)
+        oldfile = self.server.root.rootdir() + urllib.parse.unquote(self.path)
         newfile = self.server.root.rootdir(
-        ) + urlparse.urlparse(urllib.unquote(self.headers['Destination'])).path
+        ) + urllib.parse.urlparse(urllib.parse.unquote(self.headers['Destination'])).path
         if (os.path.isfile(oldfile) == True and os.path.isfile(newfile) == False):
             shutil.move(oldfile, newfile)
         if (os.path.isdir(oldfile) == True and os.path.isdir(newfile) == False):
@@ -524,9 +527,9 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
     def do_COPY(self):
         if self.WebAuth():
             return
-        oldfile = self.server.root.rootdir() + urllib.unquote(self.path)
+        oldfile = self.server.root.rootdir() + urllib.parse.unquote(self.path)
         newfile = self.server.root.rootdir(
-        ) + urlparse.urlparse(urllib.unquote(self.headers['Destination'])).path
+        ) + urllib.parse.urlparse(urllib.parse.unquote(self.headers['Destination'])).path
         # and os.path.isfile(newfile)==False):  copy can rewrite.
         if (os.path.isfile(oldfile) == True):
             shutil.copyfile(oldfile, newfile)
@@ -540,8 +543,8 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         else:
             req = self.rfile.read()
         d = builddict(req)
-        clientid = str(d['lockinfo']['owner']['href'])[
-            7:]      # temp: need Change other method!!!
+        print(d)
+        clientid = str(d['lockinfo']['owner']['href'])[7:]      # temp: need Change other method!!!
         lockid = str(uuid.uuid1())
         retstr = '<?xml version="1.0" encoding="utf-8" ?>\n<D:prop xmlns:D="DAV:">\n<D:lockdiscovery>\n<D:activelock>\n<D:locktype><D:write/></D:locktype>\n<D:lockscope><D:exclusive/></D:lockscope>\n<D:depth>Infinity</D:depth>\n<D:owner>\n<D:href>' + \
             clientid+'</D:href>\n</D:owner>\n<D:timeout>Infinite</D:timeout>\n<D:locktoken><D:href>opaquelocktoken:' + \
@@ -632,8 +635,7 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
                     w.write('  <D:%s/>\n' % wp)
                 else:
                     w.write('  <D:%s>%s</D:%s>\n' % (wp, props[wp], wp)) # TODO
-            w.write(
-                '</D:prop>\n<D:status>HTTP/1.1 200 OK</D:status>\n</D:propstat>\n</D:response>\n')
+            w.write('</D:prop>\n<D:status>HTTP/1.1 200 OK</D:status>\n</D:propstat>\n</D:response>\n')
 
         write_props_member(w, elem)
         if depth == '1':
@@ -663,9 +665,7 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         # when the client had Range: bytes=3156-3681
         bpoint = 0
         epoint = 0
-        print(props)
-        if 'getcontentlength' in props.keys():
-            fullen = props['getcontentlength']
+        fullen = props['getcontentlength']
         if 'Range' in self.headers:
             stmp = self.headers['Range'][6:]
             stmp = stmp.split('-')
@@ -790,7 +790,7 @@ class BufWriter:
             sys.stderr.write(s)
         # add unicode(s,'utf-8') for chinese code.
         # print(type(s))
-        self.buf.write(s.decode("utf-8")) # TODO: 'str' object has no attribute 'decode'?
+        self.buf.write(s) # TODO: 'str' object has no attribute 'decode'?
 
     def flush(self):
         self.w.write(self.buf.getvalue().encode('utf-8'))
