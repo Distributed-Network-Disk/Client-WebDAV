@@ -93,6 +93,7 @@ class FileMember(Member):
         """Return dictionary with WebDAV properties. Values shold be
         formatted according to the WebDAV specs."""
         st = os.stat(self.fsname)
+        print(st)
         p = {}
         p['creationdate'] = unixdate2iso8601(st.st_ctime)
         p['getlastmodified'] = unixdate2httpdate(st.st_mtime)
@@ -111,6 +112,7 @@ class FileMember(Member):
         if self.name == '/':
             p['isroot'] = 1
         return p
+        
 
     def sendData(self, wfile, bpoint=0, epoint=0):
         """Send the file to the client. Literally."""
@@ -355,8 +357,8 @@ class XMLDict_Parser:
         ps = tag.find(b' ')
         ### Change By LCJ @ 2017/9/7 from  [ if ps > 0: ]  ###
         ### for IOS Coda Webdav support ###
-        if ps > 0 and tag[-1] != '/':
-            tag, attrs = tag.split(' ', 1)
+        if ps > 0 and tag[-1] != b'/':
+            tag, attrs = tag.split(b' ', 1)
         else:
             attrs = ''
         return tag, attrs, data
@@ -661,7 +663,9 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         # when the client had Range: bytes=3156-3681
         bpoint = 0
         epoint = 0
-        fullen = props['getcontentlength']
+        print(props)
+        if 'getcontentlength' in props.keys():
+            fullen = props['getcontentlength']
         if 'Range' in self.headers:
             stmp = self.headers['Range'][6:]
             stmp = stmp.split('-')
