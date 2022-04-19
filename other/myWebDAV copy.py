@@ -50,8 +50,6 @@ import mimetypes
 import base64
 from hashlib import md5
 
-import xml.etree.ElementTree as ET
-
 # 获取本机IP地址
 
 
@@ -96,12 +94,12 @@ class FileMember(Member):
         """Return dictionary with WebDAV properties. Values shold be
         formatted according to the WebDAV specs."""
         st = os.stat(self.fsname)
-        #print(st)
+        print(st)
         p = {}
         p['creationdate'] = unixdate2iso8601(st.st_ctime)
         p['getlastmodified'] = unixdate2httpdate(st.st_mtime)
         p['displayname'] = self.name
-        p['getetag'] = md5(bytes(self.fsname, 'utf-8')).hexdigest()
+        p['getetag'] = md5(self.fsname, 'utf-8').hexdigest()
         if self.type == Member.M_MEMBER:
             p['getcontentlength'] = st.st_size
             p['getcontenttype'], z = mimetypes.guess_type(self.name)
@@ -339,7 +337,7 @@ class Tag:
 
 class XMLDict_Parser:
     def __init__(self, xml):
-        self.xml = xml.decode("utf-8") 
+        self.xml = xml
         self.p = 0
         self.encoding = sys.getdefaultencoding()
         self.namespaces = {}
@@ -458,7 +456,6 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
             return False
 
     def do_OPTIONS(self):
-        print('do options')
         if self.WebAuth():
             return
         self.send_response(200, DAVRequestHandler.server_version)
@@ -473,10 +470,9 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_DELETE(self):
-        print('do delete')
         if self.WebAuth():
             return
-        path = urllib.parse.unquote(self.path)
+        path = urllib.unquote(self.path)
         if path == '':
             self.send_error(404, 'Object not found')
             self.send_header('Content-length', '0')
@@ -497,10 +493,9 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_MKCOL(self):
-        print('do mkcol')
         if self.WebAuth():
             return
-        path = urllib.parse.unquote(self.path)
+        path = urllib.unquote(self.path)
         if path != '':
             path = self.server.root.rootdir() + path
             if os.path.isdir(path) == False:
@@ -514,12 +509,11 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_MOVE(self):
-        print('do move')
         if self.WebAuth():
             return
-        oldfile = self.server.root.rootdir() + urllib.parse.unquote(self.path)
+        oldfile = self.server.root.rootdir() + urllib.unquote(self.path)
         newfile = self.server.root.rootdir(
-        ) + urllib.parse.urlparse(urllib.parse.unquote(self.headers['Destination'])).path
+        ) + urlparse.urlparse(urllib.unquote(self.headers['Destination'])).path
         if (os.path.isfile(oldfile) == True and os.path.isfile(newfile) == False):
             shutil.move(oldfile, newfile)
         if (os.path.isdir(oldfile) == True and os.path.isdir(newfile) == False):
@@ -529,14 +523,12 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_COPY(self):
-        print('do copy')
         if self.WebAuth():
             return
-        oldfile = self.server.root.rootdir() + urllib.parse.unquote(self.path)
+        oldfile = self.server.root.rootdir() + urllib.unquote(self.path)
         newfile = self.server.root.rootdir(
-        ) + urllib.parse.urlparse(urllib.parse.unquote(self.headers['Destination'])).path
+        ) + urlparse.urlparse(urllib.unquote(self.headers['Destination'])).path
         # and os.path.isfile(newfile)==False):  copy can rewrite.
-        # print(oldfile,newfile)
         if (os.path.isfile(oldfile) == True):
             shutil.copyfile(oldfile, newfile)
         self.send_response(201, "Created")
@@ -544,13 +536,13 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_LOCK(self):
-        print('do lock')
         if 'Content-length' in self.headers:
             req = self.rfile.read(int(self.headers['Content-length']))
         else:
             req = self.rfile.read()
         d = builddict(req)
-        clientid = str(d['lockinfo']['owner']['href'])[7:]      # temp: need Change other method!!!
+        clientid = str(d['lockinfo']['owner']['href'])[
+            7:]      # temp: need Change other method!!!
         lockid = str(uuid.uuid1())
         retstr = '<?xml version="1.0" encoding="utf-8" ?>\n<D:prop xmlns:D="DAV:">\n<D:lockdiscovery>\n<D:activelock>\n<D:locktype><D:write/></D:locktype>\n<D:lockscope><D:exclusive/></D:lockscope>\n<D:depth>Infinity</D:depth>\n<D:owner>\n<D:href>' + \
             clientid+'</D:href>\n</D:owner>\n<D:timeout>Infinite</D:timeout>\n<D:locktoken><D:href>opaquelocktoken:' + \
@@ -561,11 +553,10 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Lock-Token", '<opaquelocktoken:'+lockid+'>')
         self.send_header('Content-Length', len(retstr))
         self.end_headers()
-        self.wfile.write(bytes(retstr,'utf-8'))
+        self.wfile.write(retstr)
         self.wfile.flush()
 
     def do_UNLOCK(self):
-        print('do unlock')
         # frome self.headers get Lock-Token:
         # unlock using 204 for sucess.
         self.send_response(204, 'No Content')
@@ -573,7 +564,6 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_PROPFIND(self):
-        print('do propfind')
         if self.WebAuth():
             return
         depth = 'infinity'
@@ -656,7 +646,6 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         w.flush()
 
     def do_GET(self, onlyhead=False):
-        print('do get')
         if self.WebAuth():
             return
         path, elem = self.path_elem()
@@ -675,8 +664,9 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
         # when the client had Range: bytes=3156-3681
         bpoint = 0
         epoint = 0
-        # print(props)
-        fullen = props['getcontentlength']
+        print(props)
+        if 'getcontentlength' in props.keys():
+            fullen = props['getcontentlength']
         if 'Range' in self.headers:
             stmp = self.headers['Range'][6:]
             stmp = stmp.split('-')
@@ -714,12 +704,10 @@ class DAVRequestHandler(BaseHTTPRequestHandler):
                 elem.sendData(self.wfile, bpoint, epoint)
 
     def do_HEAD(self):
-        print('do head')
         # HEAD should behave like GET, only without contents
         self.do_GET(True)
 
     def do_PUT(self):
-        print('do put')
         if self.WebAuth():
             return
         try:
